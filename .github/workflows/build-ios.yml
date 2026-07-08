@@ -7,6 +7,15 @@ on:
         description: '版本号 (如 2.2.0)'
         required: false
         default: ''
+      sign:
+        description: '签名方式 (unsigned / free / paid)'
+        required: true
+        default: 'unsigned'
+        type: choice
+        options:
+          - unsigned
+          - free
+          - paid
 
 jobs:
   build:
@@ -40,7 +49,64 @@ jobs:
       working-directory: ios/App
       run: pod install
 
-    - name: Build IPA (unsigned)
+    # ===== 免费Apple ID签名 =====
+    - name: Build IPA (Free Apple ID signing)
+      if: ${{ github.event.inputs.sign == 'free' }}
+      env:
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      run: |
+        cd ios/App
+        xcodebuild -workspace App.xcworkspace \
+          -scheme App \
+          -configuration Release \
+          -sdk iphoneos \
+          -derivedDataPath build \
+          -allowProvisioningUpdates \
+          CODE_SIGN_IDENTITY="Apple Development" \
+          CODE_SIGN_STYLE=Automatic \
+          DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
+          ENABLE_BITCODE=NO \
+          ONLY_ACTIVE_ARCH=NO
+
+    # ===== 付费开发者账号签名 =====
+    - name: Install certificate & profile (Paid signing)
+      if: ${{ github.event.inputs.sign == 'paid' }}
+      run: |
+        # 解码证书
+        echo "${{ secrets.IOS_P12_BASE64 }}" | base64 -d > certificate.p12
+        # 解码Provisioning Profile
+        echo "${{ secrets.IOS_MOBILEPROVISION_BASE64 }}" | base64 -d > profile.mobileprovision
+        # 安装证书到Keychain
+        security create-keychain -p actions temp.keychain
+        security import certificate.p12 -k temp.keychain -P "${{ secrets.IOS_P12_PASSWORD }}" -T /usr/bin/codesign
+        security set-key-partition-list -S apple-tool:,apple: -k actions temp.keychain
+        # 安装Provisioning Profile
+        mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+        cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+        # 获取Profile UUID
+        PROFILE_UUID=$(grep -aA1 UUID profile.mobileprovision | grep -o '[0-9a-f-]\{36\}')
+        echo "PROFILE_UUID=$PROFILE_UUID" >> $GITHUB_ENV
+
+    - name: Build IPA (Paid signing)
+      if: ${{ github.event.inputs.sign == 'paid' }}
+      run: |
+        cd ios/App
+        xcodebuild -workspace App.xcworkspace \
+          -scheme App \
+          -configuration Release \
+          -sdk iphoneos \
+          -derivedDataPath build \
+          CODE_SIGN_IDENTITY="Apple Distribution" \
+          CODE_SIGN_STYLE=Manual \
+          PROVISIONING_PROFILE_SPECIFIER="${{ env.PROFILE_UUID }}" \
+          DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
+          ENABLE_BITCODE=NO \
+          ONLY_ACTIVE_ARCH=NO
+
+    # ===== 无签名构建 =====
+    - name: Build IPA (Unsigned)
+      if: ${{ github.event.inputs.sign == 'unsigned' }}
       run: |
         cd ios/App
         xcodebuild -workspace App.xcworkspace \
@@ -54,15 +120,16 @@ jobs:
           ENABLE_BITCODE=NO \
           ONLY_ACTIVE_ARCH=NO
 
+    # ===== 打包IPA =====
     - name: Create IPA
       run: |
         mkdir -p build/ipa/Payload
         cp -r ios/App/build/Build/Products/Release-iphoneos/App.app build/ipa/Payload/
         cd build/ipa
-        zip -r "../../puzzle-master-v2.2-unsigned.ipa" Payload/
+        zip -r "../../puzzle-master-v2.2.ipa" Payload/
 
     - name: Upload IPA
       uses: actions/upload-artifact@v4
       with:
-        name: puzzle-master-ios-unsigned
-        path: puzzle-master-v2.2-unsigned.ipa
+        name: puzzle-master-ios-${{ github.event.inputs.sign }}
+        path: puzzle-master-v2.2.ipa
