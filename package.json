@@ -1,0 +1,33 @@
+{
+  "name": "puzzle-master",
+  "version": "1.9.0",
+  "description": "拼图大师 - 114个精美关卡",
+  "main": "index.html",
+  "scripts": {
+    "build": "echo 'Static site, no build needed'",
+    "cap:init": "npx cap init '拼图大师' com.puzzle.master --web-dir=.",
+    "cap:add": "npx cap add android",
+    "cap:sync": "npx cap sync",
+    "cap:open": "npx cap open android",
+    "cap:build": "npx cap build android",
+    "cap:add:ios": "npx cap add ios",
+    "cap:sync:ios": "npx cap sync ios",
+    "cap:open:ios": "npx cap open ios"
+  },
+  "keywords": [
+    "puzzle",
+    "game",
+    "pwa"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/ios": "^7.6.7"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0"
+  }
+}

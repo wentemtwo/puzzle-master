@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#0a0a1a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="拼图大师">
+    <meta name="description" content="挑战96个精美关卡，成为拼图之王！">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <title>拼图大师</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="dark">
+    <!-- 粒子背景 -->
+    <div id="particles" class="particles"></div>
+
+    <!-- 成就提示容器 -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- ===== 主菜单 ===== -->
+    <div id="mainMenu" class="screen active">
+        <div class="menu-content">
+            <h1 class="game-title">
+                <span class="title-emoji">🧩</span>
+                <span class="title-text">拼图大师</span>
+                <span class="title-version">v2.2</span>
+            </h1>
+            <p class="game-subtitle">挑战96个精美关卡，成为拼图之王！</p>
+            <div class="menu-stats">
+                <div class="stat-item">
+                    <span class="stat-label">已解锁</span>
+                    <span class="stat-value"><span id="unlockedCount">1</span> / <span id="totalCount">96</span></span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">总星数</span>
+                    <span class="stat-value" id="totalStarsMenu">0</span> ⭐
+                </div>
+            </div>
+            <div class="menu-buttons">
+                <button class="btn btn-primary btn-large" onclick="showLevelSelect()">
+                    <span class="btn-icon">🎮</span> 开始游戏
+                </button>
+                <button class="btn btn-secondary" onclick="showAchievements()">
+                    <span class="btn-icon">🏆</span> 成就
+                </button>
+                <button class="btn btn-secondary" onclick="showStats()">
+                    <span class="btn-icon">📊</span> 统计
+                </button>
+                <button class="btn btn-secondary" onclick="showHowToPlay()">
+                    <span class="btn-icon">📖</span> 游戏说明
+                </button>
+                <button class="btn btn-secondary" onclick="showSettings()">
+                    <span class="btn-icon">⚙️</span> 设置
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 关卡选择 ===== -->
+    <div id="levelSelect" class="screen">
+        <div class="screen-header">
+            <button class="btn btn-back" onclick="showMainMenu()">← 返回</button>
+            <h2>选择关卡</h2>
+            <div class="header-spacer"></div>
+        </div>
+        <div class="difficulty-tabs">
+            <button class="tab active" data-diff="easy" onclick="filterDifficulty('easy')">3×3</button>
+            <button class="tab" data-diff="medium" onclick="filterDifficulty('medium')">4×4</button>
+            <button class="tab" data-diff="hard" onclick="filterDifficulty('hard')">5×5</button>
+            <button class="tab" data-diff="expert" onclick="filterDifficulty('expert')">6×6</button>
+            <button class="tab" data-diff="master" onclick="filterDifficulty('master')">7×7</button>
+            <button class="tab" data-diff="legendary" onclick="filterDifficulty('legendary')">8×8</button>
+            <button class="tab" data-diff="epic" onclick="filterDifficulty('epic')">9×9</button>
+            <button class="tab" data-diff="mythic" onclick="filterDifficulty('mythic')">10×10</button>
+        </div>
+        <div id="levelGrid" class="level-grid"></div>
+    </div>
+
+    <!-- ===== 游戏界面 ===== -->
+    <div id="gameScreen" class="screen">
+        <div class="game-header">
+            <button class="btn btn-back" onclick="showQuitDialog()">← 退出</button>
+            <div class="game-info">
+                <span id="gameLevelName" class="game-level-name"></span>
+                <span id="gameDiffBadge" class="game-diff-badge"></span>
+            </div>
+            <div class="game-stats">
+                <div class="game-stat">
+                    <span class="stat-icon">⏱️</span>
+                    <span id="timerDisplay">00:00</span>
+                </div>
+                <div class="game-stat">
+                    <span class="stat-icon">👆</span>
+                    <span id="moveCount">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 连击显示 -->
+        <div id="comboDisplay" class="combo-display"></div>
+
+        <!-- 进度条 -->
+        <div class="progress-container">
+            <div id="progressBar" class="progress-bar"></div>
+            <span id="progressText" class="progress-text">0/0</span>
+        </div>
+
+        <!-- 拼图区域 -->
+        <div class="puzzle-container">
+            <div id="puzzleGrid" class="puzzle-grid"></div>
+            <div id="previewOverlay" class="preview-overlay" style="display:none;"></div>
+        </div>
+
+        <!-- 游戏工具栏 -->
+        <div class="game-toolbar">
+            <button id="undoBtn" class="btn btn-tool" onclick="undoMove()" disabled>
+                <span class="btn-icon">↩️</span> 撤销
+            </button>
+            <button id="hintBtn" class="btn btn-tool hint-smart" onclick="toggleHint()">
+                💡 提示(3)
+            </button>
+            <button class="btn btn-tool btn-hint-mode" onclick="cycleHintMode()" title="切换提示模式">
+                🔄
+            </button>
+            <button class="btn btn-tool" onclick="togglePreview()">
+                <span class="btn-icon">👁️</span> 预览
+            </button>
+            <button class="btn btn-tool" onclick="toggleNumbers()">
+                <span class="btn-icon">🔢</span> 编号
+            </button>
+        </div>
+    </div>
+
+    <!-- ===== 完成界面 ===== -->
+    <div id="completeScreen" class="screen">
+        <div class="complete-content">
+            <h2 class="complete-title">🎉 恭喜完成！</h2>
+            <div id="completeLevelName" class="complete-level-name"></div>
+            <div id="completeStars" class="complete-stars"></div>
+            <div class="complete-stats">
+                <div class="complete-stat">
+                    <span class="complete-stat-label">用时</span>
+                    <span id="completeTime" class="complete-stat-value"></span>
+                </div>
+                <div class="complete-stat">
+                    <span class="complete-stat-label">步数</span>
+                    <span id="completeMoves" class="complete-stat-value"></span>
+                </div>
+                <div id="completeCombo" class="complete-combo"></div>
+            </div>
+            <div class="complete-buttons">
+                <button class="btn btn-primary" onclick="startLevel(gameState.currentLevel.id)">
+                    <span class="btn-icon">🔄</span> 再玩一次
+                </button>
+                <button id="nextLevelBtn" class="btn btn-secondary" onclick="">
+                    <span class="btn-icon">➡️</span> 下一关
+                </button>
+                <button class="btn btn-secondary" onclick="showLevelSelect()">
+                    <span class="btn-icon">📋</span> 关卡选择
+                </button>
+                <button class="btn btn-secondary" onclick="showMainMenu()">
+                    <span class="btn-icon">🏠</span> 主菜单
+                </button>
+            </div>
+        </div>
+        <div id="confettiContainer" class="confetti-container"></div>
+    </div>
+
+    <!-- ===== 成就界面 ===== -->
+    <div id="achievementsScreen" class="screen">
+        <div class="screen-header">
+            <button class="btn btn-back" onclick="showMainMenu()">← 返回</button>
+            <h2>🏆 成就</h2>
+            <span id="achievementCount" class="achievement-count">0 / 15</span>
+        </div>
+        <div id="achievementGrid" class="achievement-grid"></div>
+    </div>
+
+    <!-- ===== 游戏说明 ===== -->
+    <div id="howToPlay" class="screen">
+        <div class="screen-header">
+            <button class="btn btn-back" onclick="showMainMenu()">← 返回</button>
+            <h2>📖 游戏说明</h2>
+            <div class="header-spacer"></div>
+        </div>
+        <div class="how-to-play-content">
+            <div class="instruction-card">
+                <h3>🎯 目标</h3>
+                <p>将打乱的拼图块还原为完整图片。点击两个拼图块可以交换它们的位置。</p>
+            </div>
+            <div class="instruction-card">
+                <h3>🎮 操作</h3>
+                <p><strong>点击交换：</strong>先点击一个块选中，再点击另一个块交换</p>
+                <p><strong>拖拽交换：</strong>拖动一个块到另一个块上交换</p>
+                <p><strong>滑动交换：</strong>在触摸屏上滑动一个块到相邻位置</p>
+            </div>
+            <div class="instruction-card">
+                <h3>⭐ 评分</h3>
+                <p>根据完成时间和步数获得1-3星评价。越快越少步，星星越多！</p>
+            </div>
+            <div class="instruction-card">
+                <h3>🔥 连击</h3>
+                <p>连续将拼图块放到正确位置会触发连击，连击数越高越酷！</p>
+            </div>
+            <div class="instruction-card">
+                <h3>↩️ 撤销</h3>
+                <p>走错了？点击撤销按钮或按 Ctrl+Z 回退上一步。但使用撤销将无法获得"一往无前"成就！</p>
+            </div>
+            <div class="instruction-card">
+                <h3>🔓 解锁</h3>
+                <p>收集足够的星星可以解锁更高难度的关卡：</p>
+                <ul>
+                    <li>简单 3×3 - 直接开放</li>
+                    <li>中等 4×4 - 需要12星</li>
+                    <li>困难 5×5 - 需要30星</li>
+                    <li>专家 6×6 - 需要54星</li>
+                    <li>大师 7×7 - 需要80星</li>
+                    <li>传奇 8×8 - 需要112星</li>
+                    <li>史诗 9×9 - 需要150星</li>
+                    <li>神话 10×10 - 需要174星</li>
+                </ul>
+            </div>
+            <div class="instruction-card">
+                <h3>⌨️ 快捷键</h3>
+                <p><strong>Ctrl+Z</strong> - 撤销 &nbsp; <strong>H</strong> - 提示 &nbsp; <strong>P</strong> - 预览 &nbsp; <strong>Esc</strong> - 退出</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 统计界面 ===== -->
+    <div id="statsScreen" class="screen">
+        <div class="screen-header">
+            <button class="btn btn-back" onclick="showMainMenu()">← 返回</button>
+            <h2>📊 统计</h2>
+            <div class="header-spacer"></div>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-card-icon">⭐</div>
+                <div class="stat-card-value" id="statTotalStars">0</div>
+                <div class="stat-card-label">总星数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-icon">✅</div>
+                <div class="stat-card-value" id="statCompleted">0</div>
+                <div class="stat-card-label">已完成</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-icon">💎</div>
+                <div class="stat-card-value" id="statThreeStars">0</div>
+                <div class="stat-card-label">完美通关</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-icon">🔥</div>
+                <div class="stat-card-value" id="statMaxCombo">0</div>
+                <div class="stat-card-label">最大连击</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-icon">⏱️</div>
+                <div class="stat-card-value" id="statBestTime">--:--</div>
+                <div class="stat-card-label">最佳时间</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-icon">👆</div>
+                <div class="stat-card-value" id="statBestMoves">--</div>
+                <div class="stat-card-label">最少步数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-icon">🏆</div>
+                <div class="stat-card-value" id="statAchievements">0 / 15</div>
+                <div class="stat-card-label">成就</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-icon">📈</div>
+                <div class="stat-card-value" id="statProgress">0 / 288</div>
+                <div class="stat-card-label">总进度</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 设置界面 ===== -->
+    <div id="settingsScreen" class="screen">
+        <div class="screen-header">
+            <button class="btn btn-back" onclick="showMainMenu()">← 返回</button>
+            <h2>⚙️ 设置</h2>
+            <div class="header-spacer"></div>
+        </div>
+        <div class="settings-list">
+            <div class="setting-item">
+                <div class="setting-info">
+                    <div class="setting-name">🔊 音效</div>
+                    <div class="setting-desc">开启或关闭游戏音效</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="soundToggle" onchange="toggleSound()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="setting-item">
+                <div class="setting-info">
+                    <div class="setting-name">✨ 动画</div>
+                    <div class="setting-desc">开启或关闭动画效果</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="animToggle" onchange="toggleAnimation()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="setting-item">
+                <div class="setting-info">
+                    <div class="setting-name">🔢 显示编号</div>
+                    <div class="setting-desc">在拼图块上显示编号辅助</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="numberToggle" onchange="toggleNumbers()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="setting-item">
+                <div class="setting-info">
+                    <div class="setting-name">🎨 主题</div>
+                    <div class="setting-desc">切换明暗主题</div>
+                </div>
+                <select id="themeSelect" class="theme-select" onchange="changeTheme(this.value)">
+                    <option value="dark">🌙 暗色</option>
+                    <option value="light">☀️ 亮色</option>
+                </select>
+            </div>
+            <div class="setting-item">
+                <div class="setting-info">
+                    <div class="setting-name">🗑️ 重置进度</div>
+                    <div class="setting-desc">清除所有游戏进度和成就</div>
+                </div>
+                <button class="btn btn-danger" onclick="resetProgress()">重置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 退出确认对话框 ===== -->
+    <div id="quitDialog" class="dialog-overlay" style="display:none;">
+        <div class="dialog">
+            <h3>退出游戏</h3>
+            <p>是否保存当前进度？</p>
+            <div class="dialog-buttons">
+                <button class="btn btn-secondary" onclick="hideQuitDialog()">继续游戏</button>
+                <button class="btn btn-primary" onclick="quitGame(true)">保存并退出</button>
+                <button class="btn btn-danger" onclick="quitGame(false)">不保存退出</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 加载覆盖层 ===== -->
+    <div id="loadingOverlay" class="loading-overlay" style="display:none;">
+        <div class="loading-spinner"></div>
+        <p>加载图片中...</p>
+    </div>
+
+    <script src="game.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').catch(() => {});
+        }
+    </script>
+</body>
+</html>

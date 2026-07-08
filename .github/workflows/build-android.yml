@@ -1,0 +1,93 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (如 1.8.0)'
+        required: false
+        default: ''
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Setup Java (JDK 21)
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '21'
+    
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+    
+    - name: Accept Android licenses
+      run: yes | sdkmanager --licenses || true
+    
+    - name: Install Android platform & build tools
+      run: |
+        sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+    
+    - name: Sync Capacitor
+      run: npx cap sync android
+    
+    - name: Build Debug APK
+      run: |
+        cd android
+        chmod +x gradlew
+        ./gradlew assembleDebug
+    
+    - name: Build Release APK (if keystore configured)
+      if: ${{ env.KEYSTORE_BASE64 != '' }}
+      env:
+        KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      run: |
+        echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+        cd android
+        ./gradlew assembleRelease \
+          -Pandroid.signingConfigs.release.storeFile=release.keystore \
+          -Pandroid.signingConfigs.release.storePassword="$KEYSTORE_PASSWORD" \
+          -Pandroid.signingConfigs.release.keyAlias="$KEY_ALIAS" \
+          -Pandroid.signingConfigs.release.keyPassword="$KEY_PASSWORD"
+    
+    - name: Upload Debug APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: puzzle-master-debug
+        path: android/app/build/outputs/apk/debug/app-debug.apk
+    
+    - name: Upload Release APK
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: puzzle-master-release
+        path: android/app/build/outputs/apk/release/app-release.apk
+    
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          android/app/build/outputs/apk/debug/app-debug.apk
+          android/app/build/outputs/apk/release/*.apk
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
